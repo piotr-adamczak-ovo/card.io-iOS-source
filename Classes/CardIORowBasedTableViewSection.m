@@ -4,6 +4,7 @@
 //
 
 #import "CardIORowBasedTableViewSection.h"
+#import <UIKit/UIKit.h>
 
 #define kCellHeightAdjustment 1
 

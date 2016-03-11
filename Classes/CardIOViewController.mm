@@ -53,8 +53,8 @@
 @property(nonatomic, assign, readwrite) BOOL                changeStatusBarHiddenStatus;
 @property(nonatomic, assign, readwrite) BOOL                newStatusBarHiddenStatus;
 @property(nonatomic, assign, readwrite) BOOL                statusBarWasOriginallyHidden;
-@property(nonatomic, strong, readwrite) UIButton           *cancelButton;
-@property(nonatomic, strong, readwrite) UIButton           *manualEntryButton;
+@property(nonatomic, strong, readwrite) UIBarButtonItem           *cancelButton;
+@property(nonatomic, strong, readwrite) UIBarButtonItem    *manualEntryButton;
 @property(nonatomic, assign, readwrite) UIDeviceOrientation deviceOrientation;
 @property(nonatomic, assign, readwrite) CGSize              cancelButtonFrameSize;
 @property(nonatomic, assign, readwrite) CGSize              manualEntryButtonFrameSize;
@@ -64,22 +64,6 @@
 #pragma mark -
 
 @implementation CardIOViewController
-
-
-- (id)init {
-  if((self = [super initWithNibName:nil bundle:nil])) {
-    if (iOS_7_PLUS) {
-      self.automaticallyAdjustsScrollViewInsets = YES;
-      self.edgesForExtendedLayout = UIRectEdgeNone;
-    }
-    else {
-      self.wantsFullScreenLayout = YES;
-    }
-    _statusBarWasOriginallyHidden = [UIApplication sharedApplication].statusBarHidden;
-  }
-  return self;
-}
-
 
 #pragma mark - View Load/Unload sequence
 
@@ -109,26 +93,23 @@
 
   [self.view addSubview:self.cardIOView];
 
-  _cancelButton = [self makeButtonWithTitle:CardIOLocalizedString(@"cancel", self.context.languageOrLocale) // Cancel
-                               withSelector:@selector(cancel:)];
-  _cancelButtonFrameSize = self.cancelButton.frame.size;
-  [self.view addSubview:self.cancelButton];
+  _cancelButton = [[UIBarButtonItem alloc] initWithTitle:CardIOLocalizedString(@"cancel", self.context.languageOrLocale)
+                                                        style:UIBarButtonItemStylePlain
+                                                       target: self
+                                                       action: @selector(cancel:)];
+  [self.navigationItem setLeftBarButtonItem:_cancelButton];
+  [self.navigationController.navigationItem setLeftBarButtonItem:_cancelButton];
+  
 
   if (!self.context.disableManualEntryButtons) {
-    _manualEntryButton = [self makeButtonWithTitle:CardIOLocalizedString(@"manual_entry", self.context.languageOrLocale) // Enter Manually
-                                      withSelector:@selector(manualEntry:)];
-    _manualEntryButtonFrameSize = self.manualEntryButton.frame.size;
-    [self.view addSubview:self.manualEntryButton];
+      
+      _manualEntryButton = [[UIBarButtonItem alloc] initWithTitle:CardIOLocalizedString(@"manual_entry", self.context.languageOrLocale)
+                                                            style:UIBarButtonItemStylePlain
+                                                           target: self
+                                                           action: @selector(manualEntry:)];
+      [self.navigationController.navigationItem setRightBarButtonItem:_manualEntryButton];
+      [self.navigationItem setRightBarButtonItem:_manualEntryButton];
   }
-
-  // Add shadow to camera preview
-  _shadowLayer = [CALayer layer];
-  self.shadowLayer.shadowRadius = kDropShadowRadius;
-  self.shadowLayer.shadowColor = [UIColor blackColor].CGColor;
-  self.shadowLayer.shadowOffset = CGSizeMake(0.0f, 0.0f);
-  self.shadowLayer.shadowOpacity = 0.5f;
-  self.shadowLayer.masksToBounds = NO;
-  [self.cardIOView.layer insertSublayer:self.shadowLayer atIndex:0]; // must go *behind* everything
 }
 
 - (void)viewWillLayoutSubviews {
@@ -148,13 +129,9 @@
 
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
-  [self.cardIOView layoutIfNeeded]; // otherwise self.cardIOView's layoutSubviews doesn't get called until *after* viewDidLayoutSubviews returns!
-
+  [self.cardIOView layoutIfNeeded]; 
   // Re-layout shadow
   CGRect cameraPreviewFrame = self.cardIOView.cameraPreviewFrame;
-  UIBezierPath *shadowPath = [UIBezierPath bezierPathWithRect:UIEdgeInsetsInsetRect(cameraPreviewFrame, kShadowInsets)];
-  self.shadowLayer.shadowPath = shadowPath.CGPath;
-
   [self layoutButtonsForCameraPreviewFrame:self.cardIOView.cameraPreviewFrame];
 }
 
@@ -162,10 +139,8 @@
   [super viewWillAppear:animated];
 
   self.deviceOrientation = UIDeviceOrientationUnknown;
-
   self.cardIOView.hidden = NO;
-  [self.navigationController setNavigationBarHidden:YES animated:animated];
-
+  
   [[NSNotificationCenter defaultCenter] addObserver:self
                                            selector:@selector(didReceiveDeviceOrientationNotification:)
                                                name:UIDeviceOrientationDidChangeNotification
@@ -175,30 +150,16 @@
   [self didReceiveDeviceOrientationNotification:nil];
 }
 
-- (void)viewDidAppear:(BOOL)animated {
-  [super viewDidAppear:animated];
-
-  if (self.changeStatusBarHiddenStatus) {
-    [[UIApplication sharedApplication] setStatusBarHidden:self.newStatusBarHiddenStatus withAnimation:UIStatusBarAnimationFade];
-    if (iOS_7_PLUS) {
-      [self setNeedsStatusBarAppearanceUpdate];
-    }
-  }
-}
-
 - (void)viewWillDisappear:(BOOL)animated {
   [[UIDevice currentDevice] endGeneratingDeviceOrientationNotifications];
   [[NSNotificationCenter defaultCenter] removeObserver:self];
 
   self.cardIOView.hidden = YES;
-  if (self.changeStatusBarHiddenStatus) {
-    [[UIApplication sharedApplication] setStatusBarHidden:self.statusBarWasOriginallyHidden withAnimation:UIStatusBarAnimationFade];
-    if (iOS_7_PLUS) {
-      [self setNeedsStatusBarAppearanceUpdate];
-    }
-  }
   [super viewWillDisappear:animated];
 }
+
+#pragma mark - Layout 
+
 
 #pragma mark - Make the Cancel and Manual Entry buttons
 
@@ -303,70 +264,7 @@
 }
 
 - (void)layoutButtonsForCameraPreviewFrame:(CGRect)cameraPreviewFrame {
-  if (cameraPreviewFrame.size.width == 0 || cameraPreviewFrame.size.height == 0) {
-    return;
-  }
-
-  // - When setting each button's frame, it's simplest to do that without any rotational transform applied to the button.
-  //   So immediately prior to setting the frame, we set `button.transform = CGAffineTransformIdentity`.
-  // - Later in this method we set a new transform for each button.
-  // - We call [CATransaction setDisableActions:YES] to suppress the visible animation to the
-  //   CGAffineTransformIdentity position; for reasons we haven't explored, this is only desirable for the
-  //   InterfaceToDeviceOrientationRotatedClockwise and InterfaceToDeviceOrientationRotatedCounterclockwise rotations.
-  //   (Thanks to https://github.com/card-io/card.io-iOS-source/issues/30 for the [CATransaction setDisableActions:YES] suggestion.)
-
-  InterfaceToDeviceOrientationDelta delta = orientationDelta([UIApplication sharedApplication].statusBarOrientation, self.deviceOrientation);
-  BOOL disableTransactionActions = (delta == InterfaceToDeviceOrientationRotatedClockwise ||
-                                    delta == InterfaceToDeviceOrientationRotatedCounterclockwise);
-  
-  if (disableTransactionActions) {
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-  }
-
-  self.cancelButton.transform = CGAffineTransformIdentity;
-  self.cancelButton.frame = CGRectWithXYAndSize(cameraPreviewFrame.origin.x + 5.0f,
-                                                CGRectGetMaxY(cameraPreviewFrame) - self.cancelButtonFrameSize.height - 5.0f,
-                                                self.cancelButtonFrameSize);
-
-  if (self.manualEntryButton) {
-    self.manualEntryButton.transform = CGAffineTransformIdentity;
-    self.manualEntryButton.frame = CGRectWithXYAndSize(CGRectGetMaxX(cameraPreviewFrame) - self.manualEntryButtonFrameSize.width - 5.0f,
-                                                       CGRectGetMaxY(cameraPreviewFrame) - self.manualEntryButtonFrameSize.height - 5.0f,
-                                                       self.manualEntryButtonFrameSize);
-  }
-
-  if (disableTransactionActions) {
-    [CATransaction commit];
-  }
-
-  CGAffineTransform r;
-  CGFloat rotation = -rotationForOrientationDelta(delta); // undo the orientation delta
-  r = CGAffineTransformMakeRotation(rotation);
-
-  switch (delta) {
-    case InterfaceToDeviceOrientationSame:
-    case InterfaceToDeviceOrientationUpsideDown: {
-      self.cancelButton.transform = r;
-      self.manualEntryButton.transform = r;
-      break;
-    }
-    case InterfaceToDeviceOrientationRotatedClockwise:
-    case InterfaceToDeviceOrientationRotatedCounterclockwise: {
-      CGFloat cancelDelta = (self.cancelButtonFrameSize.width - self.cancelButtonFrameSize.height) / 2;
-      CGFloat manualEntryDelta = (self.manualEntryButtonFrameSize.width - self.manualEntryButtonFrameSize.height) / 2;
-      if (delta == InterfaceToDeviceOrientationRotatedClockwise) {
-        cancelDelta = -cancelDelta;
-        manualEntryDelta = -manualEntryDelta;
-      }
-      self.cancelButton.transform = CGAffineTransformTranslate(r, cancelDelta, -cancelDelta);
-      self.manualEntryButton.transform = CGAffineTransformTranslate(r, manualEntryDelta, manualEntryDelta);
-      break;
-    }
-    default: {
-      break;
-    }
-  }
+  return;
 }
 
 // Overlay orientation has the same constraints as the view controller,
@@ -402,21 +300,6 @@
     }
     return defaultOrientation;
   }
-}
-
-#pragma mark - Status bar preferences (iOS 7)
-
-- (BOOL)prefersStatusBarHidden {
-  if (self.changeStatusBarHiddenStatus) {
-    return self.newStatusBarHiddenStatus;
-  }
-  else {
-    return YES;
-  }
-}
-
-- (UIStatusBarStyle) preferredStatusBarStyle {
-  return UIStatusBarStyleLightContent;
 }
 
 #pragma mark - Handle button taps
@@ -569,6 +452,12 @@
       }];
     }
   }
+}
+
+- (void)setCloseButton:(UIBarButtonItem*)closeButton {
+  _cancelButton = closeButton;
+  [self.navigationItem setLeftBarButtonItem:_cancelButton];
+  [self.navigationController.navigationItem setLeftBarButtonItem:_cancelButton];
 }
 
 @end

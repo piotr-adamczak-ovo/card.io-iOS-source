@@ -92,8 +92,6 @@ NSString * const CardIOScanningOrientationAnimationDuration = @"CardIOScanningOr
   [super layoutSubviews];
   
   self.cameraView.frame = self.bounds;
-  [self.cameraView sizeToFit];
-  self.cameraView.center = CenterOfRect(CGRectZeroWithSize(self.bounds.size));
 
   [self.cameraView layoutIfNeeded];
 }

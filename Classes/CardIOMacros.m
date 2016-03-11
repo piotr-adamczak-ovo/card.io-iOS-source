@@ -4,6 +4,7 @@
 //
 
 #import "CardIOMacros.h"
+#import <UIKit/UIKit.h>
 
 @implementation CardIOMacros
 

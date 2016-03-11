@@ -87,32 +87,10 @@
 
 - (void)calculateRelevantViewFrame {
   self.relevantViewFrame = self.view.bounds;
-
-  if (!iOS_7_PLUS) {
-    // On iOS 7, setting 'edgesForExtendedLayout = UIRectEdgeNone' takes care of the offset
-    if (self.navigationController.navigationBar.translucent) {
-      CGRect relevantViewFrame = self.view.bounds;
-      CGFloat barsHeight = NavigationBarHeightForCurrentOrientation(self.navigationController);
-      if (self.navigationController.modalPresentationStyle == UIModalPresentationFullScreen && !self.statusBarHidden) {
-        barsHeight += kStatusBarHeight;
-      }
-      relevantViewFrame.origin.y += barsHeight;
-      relevantViewFrame.size.height -= barsHeight;
-      self.relevantViewFrame = relevantViewFrame;
-    }
-  }
 }
 
 - (void)viewDidLoad {
   [super viewDidLoad];
-
-  if (iOS_7_PLUS) {
-    self.automaticallyAdjustsScrollViewInsets = YES;
-    self.edgesForExtendedLayout = UIRectEdgeNone;
-  }
-  else {
-    self.wantsFullScreenLayout = YES;
-  }
 
   [self calculateRelevantViewFrame];
 
@@ -178,9 +156,6 @@
 
   // On iOS 7, remove the edge inset from the table for a more consistent appearance
   // when there are multiple inputs in a row.
-  if (iOS_7_PLUS) {
-    self.tableView.separatorInset = UIEdgeInsetsZero;
-  }
 
   NSMutableArray *sections = [NSMutableArray arrayWithCapacity:1];
   self.visibleTextFields = [NSMutableArray arrayWithCapacity:4];
@@ -372,53 +347,12 @@
   background.backgroundColor = kColorViewBackground;
   self.tableView.backgroundView = background;
 
-  [self.scrollView addSubview:self.tableView];
-
-  if (iOS_7_PLUS) {
-    self.leftTableBorderForIOS7 = [[UIView alloc] init];
-    self.leftTableBorderForIOS7.backgroundColor = [UIColor colorWithWhite:kiOS7TableViewBorderColor alpha:1];
-    self.leftTableBorderForIOS7.hidden = YES;
-    [self.scrollView addSubview:self.leftTableBorderForIOS7];
-
-    self.rightTableBorderForIOS7 = [[UIView alloc] init];
-    self.rightTableBorderForIOS7.backgroundColor = [UIColor colorWithWhite:kiOS7TableViewBorderColor alpha:1];
-    self.rightTableBorderForIOS7.hidden = YES;
-    [self.scrollView addSubview:self.rightTableBorderForIOS7];
-  }
-
   if (self.cardView) {
     // Animations look better if the cardView is in front of the tableView
     [self.scrollView bringSubviewToFront:self.cardView];
   }
 
-  [self.view addSubview:self.scrollView];
-}
-
-- (void)viewWillAppear:(BOOL)animated {
-  if ([UIApplication sharedApplication].statusBarOrientation != (UIInterfaceOrientation)[UIDevice currentDevice].orientation) {
-    // Force interface to rotate to match current device orientation, following portrait-only camera view.
-    [[NSNotificationCenter defaultCenter] postNotificationName:UIDeviceOrientationDidChangeNotification object:nil];
-  }
-
-  [super viewWillAppear:animated];
-
-  if (self.navigationController.modalPresentationStyle == UIModalPresentationFullScreen && !self.statusBarHidden) {
-    [[UIApplication sharedApplication] setStatusBarHidden:NO withAnimation:UIStatusBarAnimationFade];
-    if (iOS_7_PLUS) {
-      [self setNeedsStatusBarAppearanceUpdate];
-    }
-  }
-
-  if (!self.context.keepStatusBarStyle) {
-    if (iOS_7_PLUS) {
-      [UIApplication sharedApplication].statusBarStyle = UIStatusBarStyleDefault;
-    }
-    else {
-      [UIApplication sharedApplication].statusBarStyle = UIStatusBarStyleLightContent;
-    }
-  }
-
-  [self.navigationController setNavigationBarHidden:NO animated:animated];
+  [self.view addSubview:self.tableView];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -550,9 +484,9 @@
   self.scrollView.contentInset = ei;
 
   CGRect scrollTo = [self.tableView rectForSection:0];
-  scrollTo = [self.scrollView convertRect:scrollTo fromView:self.tableView];
+  scrollTo = [self.tableView convertRect:scrollTo fromView:self.tableView];
   if (scrollTo.size.height <= inputViewFrameInView.origin.y) {
-    [self.scrollView scrollRectToVisible:scrollTo animated:YES];
+    [self.tableView scrollRectToVisible:scrollTo animated:YES];
   }
   else {
     scrollTo.size.height = 1;
@@ -560,11 +494,11 @@
       if ([self.visibleTextFields[index] isEditing]) {
         UITextField *textField = ((UITextField *)self.visibleTextFields[index]);
         scrollTo = textField.bounds;
-        scrollTo = [self.scrollView convertRect:scrollTo fromView:textField];
+        scrollTo = [self.tableView convertRect:scrollTo fromView:textField];
         break;
       }
     }
-    [self.scrollView scrollRectToVisible:scrollTo animated:YES];
+    [self.tableView scrollRectToVisible:scrollTo animated:YES];
   }
 }
 
@@ -618,6 +552,7 @@
 
   [self calculateRelevantViewFrame];
   self.scrollView.frame = self.relevantViewFrame;
+  self.tableView.frame = self.view.bounds;
 
   if (self.cardView) {
     CGRect cardViewFrame = self.cardView.frame;
@@ -689,11 +624,8 @@
     }
 
     self.cardView.frame = cardViewFrame;
-    self.tableView.frame = tableViewFrame;
-
-    self.scrollView.contentSize = CGSizeMake(self.scrollView.bounds.size.width,
-                                             MAX(self.tableView.frame.origin.y + CGRectGetMaxY([self.tableView rectForSection:0]), CGRectGetMaxY(self.cardView.frame)));
   }
+
   else {
     CGRect tableViewFrame;
 
@@ -732,43 +664,7 @@
         self.rightTableBorderForIOS7.frame = tableBorderFrame;
       }
     }
-
-    self.tableView.frame = tableViewFrame;
-
-    self.scrollView.contentSize = CGSizeMake(self.scrollView.bounds.size.width,
-                                             self.tableView.frame.origin.y + CGRectGetMaxY([self.tableView rectForSection:0]));
-  }
-}
-
-- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
-  self.activeTextField = nil;
-  for(UITextField *textField in self.visibleTextFields) {
-    if ([textField isFirstResponder]) {
-      self.activeTextField = textField;
-      [textField resignFirstResponder];
-      break;
-    }
-  }
-
-  [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
-}
-
-- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
-  [super didRotateFromInterfaceOrientation:fromInterfaceOrientation];
-
-  if (self.view.bounds.size.height != self.oldHeight) {
-    [self showTableBorders:NO];
-
-    [UIView animateWithDuration:0.4
-                     animations:^{
-                       [self layoutForCurrentOrientation];
-                     }
-                     completion:^(BOOL finished) {
-                       [self showTableBorders:YES];
-                     }];
-  }
-
-  [self.activeTextField becomeFirstResponder];
+   }
 }
 
 #pragma mark - Status bar preferences (iOS 7)
@@ -777,9 +673,6 @@
   return UIStatusBarStyleDefault;
 }
 
-- (BOOL)prefersStatusBarHidden {
-  return self.statusBarHidden;
-}
 
 #pragma mark -
 
@@ -791,11 +684,6 @@
     for (UITextField *field in self.visibleTextFields) {
       [field resignFirstResponder];
     }
-  }
-
-  if (iOS_7_PLUS) {
-    // On iOS 7, looks better if we start sliding away the nav bar prior to transitioning to camera-view.
-    [self.navigationController setNavigationBarHidden:YES animated:YES];
   }
 
   ((CardIOPaymentViewController *)self.navigationController).currentViewControllerIsDataEntry = NO;

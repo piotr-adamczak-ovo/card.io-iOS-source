@@ -5,6 +5,8 @@
 
 // CardIOLog is a replacement for NSLog that logs iff CARDIO_DEBUG is set.
 
+#import <Foundation/Foundation.h>
+
 #if CARDIO_DEBUG
 #define CardIOLog(format, args...) NSLog(format, ## args)
 #else

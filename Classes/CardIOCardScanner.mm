@@ -16,7 +16,7 @@
 #include "morph.h"
 #include <vector>
 
-#define SCAN_FOREVER 0  // useful for debugging expiry
+//#define SCAN_FOREVER 0  // useful for debugging expiry
 
 @interface CardIOCardScanner ()
 
@@ -98,9 +98,10 @@
     return nil;
   }
 
-  if(self.cardInfoCacheDirty) {
+  if(YES) {
     ScannerResult result;
     scanner_result(&_scannerState, &result);
+    
     if(result.complete) {
       NSString *cardNumber = nil;
       self.scanIsComplete = YES;

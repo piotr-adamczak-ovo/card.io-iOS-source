@@ -14,6 +14,7 @@
 @interface CardIOViewController : UIViewController
 
 - (id)init;
+- (void)setCloseButton:(UIBarButtonItem*)closeButton;
 
 @property(nonatomic, strong, readwrite) CardIOContext *context;
 

@@ -91,6 +91,12 @@
     self.videoStream.previewLayer.contentsGravity = kCAGravityResizeAspect;
 #if USE_CAMERA
     self.videoStream.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
+      
+      CGRect bounds = CGRectMake(0, 0, CGRectGetWidth(frame), CGRectGetHeight(frame));
+      
+      self.videoStream.previewLayer.bounds = bounds;
+      self.videoStream.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
+      self.videoStream.previewLayer.position = CGPointMake(CGRectGetMidX(bounds), CGRectGetMidY(bounds));
 #endif
     
     // These settings are helpful when debugging rotation/bounds/rendering issues:
@@ -207,20 +213,26 @@
 }
 
 - (CGRect)cameraPreviewFrame {
-  CGRect cameraPreviewFrame = [[self class] previewRectWithinSize:self.bounds.size
-                                                        landscape:UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)];
-  return cameraPreviewFrame;
+    return self.bounds;
 }
 
 - (void)layoutSubviews {
+  [super layoutSubviews];
   [self updateCameraOrientation];
 
   CGRect cameraPreviewFrame = [self cameraPreviewFrame];
-
+  CGRect bounds = CGRectMake(0, 0, CGRectGetWidth(cameraPreviewFrame), CGRectGetHeight(cameraPreviewFrame));
+  
+  NSLog(@"%@", NSStringFromCGRect(cameraPreviewFrame));
+  
   SuppressCAAnimation(^{
     if (!CGRectEqualToRect(self.videoStream.previewLayer.frame, cameraPreviewFrame)) {
       self.videoStream.previewLayer.frame = cameraPreviewFrame;
+      self.videoStream.previewLayer.bounds = bounds;
+      self.videoStream.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
+      self.videoStream.previewLayer.position = CGPointMake(CGRectGetMidX(bounds), CGRectGetMidY(bounds));
     }
+      
     self.shutter.frame = cameraPreviewFrame;
 
     [self layoutCameraButtons];
